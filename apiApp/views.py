@@ -1,8 +1,9 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
-from .models import Product, Category, Cart, CartItem
-from .serializers import ProductListSerializer, CategoryListSerializer, ProductDetailSerializer, CartSerializer
+from .models import Product, Category, Cart, CartItem, Review
+from .serializers import ProductListSerializer, CategoryListSerializer, ProductDetailSerializer, CartSerializer, CartItemSerializer, ReviewSerializer
 from rest_framework.response import Response
+from django.contrib.auth import get_user_model
 
 @api_view(['GET'])
 def product_list(request):
@@ -48,3 +49,62 @@ def add_to_cart(request):
 
     serializer = CartSerializer(cart)
     return Response(serializer.data)
+
+@api_view(['PUT'])
+def update_cartitem(request):
+    cartitem_id = request.data.get('item_id')
+    quantity = request.data.get('quantity')
+    quantity = int(quantity)
+
+    cartitem = CartItem.objects.get(id=cartitem_id)
+    cartitem.quantity = quantity
+    cartitem.save()
+
+    serializer = CartItemSerializer(cartitem)
+    return Response({"data": serializer.data, "message": "Cart item updated successfully"})
+
+@api_view(['POST'])
+def add_review(request):
+    User = get_user_model()
+    product_id = request.data.get('product_id')
+    email = request.data.get('email')
+    rating = request.data.get('rating')
+    review_text = request.data.get('review')
+
+    product = Product.objects.get(id=product_id)
+    user = User.objects.get(email=email)
+
+    if Review.objects.filter(product=product, user=user).exists():
+        return Response({"error": "You have already reviewed this product"}, status=400)
+
+    review = Review.objects.create(user=user, product=product, rating=rating, review=review_text)
+    serializer = ReviewSerializer(review)
+    return Response({"data": serializer.data, "message": "Review added successfully"})
+
+@api_view(['PUT'])
+def update_review(request, pk):
+    review = Review.objects.get(id=pk)
+    email = request.data.get('email')
+    rating = request.data.get('rating')
+    review_text = request.data.get('review')
+
+    if review.user.email != email:
+        return Response({"error": "You can only update your own reviews"}, status=403)
+
+    review.rating = rating
+    review.review = review_text
+    review.save()
+
+    serializer = ReviewSerializer(review)
+    return Response({"data": serializer.data, "message": "Review updated successfully"})
+
+@api_view(['DELETE'])
+def delete_review(request, pk):
+    review = Review.objects.get(id=pk)
+    email = request.data.get('email')
+
+    if review.user.email != email:
+        return Response({"error": "You can only delete your own reviews"}, status=403)
+
+    review.delete()
+    return Response({"message": "Review deleted successfully"})

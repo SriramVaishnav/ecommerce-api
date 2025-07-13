@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
+from django.conf import settings
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
@@ -66,3 +67,36 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} of quantiy {self.quantity} in cart {self.cart.cart_code}"
+
+class Review(models.Model):
+
+    RATING_CHOICES = [
+        (1, '1 Star'),
+        (2, '2 Stars'),
+        (3, '3 Stars'),
+        (4, '4 Stars'),
+        (5, '5 Stars'),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
+    review = models.TextField(blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Review by {self.user.username} for {self.product.name}"
+    
+    class Meta:
+        unique_together = ('product', 'user')
+        ordering = ['-created']
+
+
+class ProductRating(models.Model):
+    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='rating')
+    average_rating = models.FloatField(default=0.0)
+    total_reviews = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"Rating for {self.product.name} - Average: {self.average_rating}, Total Reviews: {self.total_reviews}"
