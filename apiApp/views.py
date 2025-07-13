@@ -4,6 +4,7 @@ from .models import Product, Category, Cart, CartItem, Review, Wishlist
 from .serializers import ProductListSerializer, CategoryListSerializer, ProductDetailSerializer, CartSerializer, CartItemSerializer, ReviewSerializer, WishlistSerializer
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -128,3 +129,23 @@ def add_to_wishlist(request):
     new_wishlist = Wishlist.objects.create(user=user, product=product)
     serializer = WishlistSerializer(new_wishlist)
     return Response({"data": serializer.data, "message": "Product added to wishlist"})
+
+
+@api_view(['DELETE'])
+def delete_cartitem(request, pk):
+    try:
+        cartitem = CartItem.objects.get(id=pk)
+        cartitem.delete()
+        return Response({"message": "Cart item deleted successfully"}, status=204)
+    except CartItem.DoesNotExist:
+        return Response({"error": "Cart item not found"}, status=404)
+    
+
+@api_view(['GET'])
+def product_search(request):
+    query = request.query_params.get("query")
+    if not query:
+        return Response({"error": "No search query provided"}, status=400)
+    products = Product.objects.filter(Q(name__icontains=query) | Q(description__icontains=query) | Q(category__name__icontains=query))
+    serializer = ProductListSerializer(products, many=True)
+    return Response(serializer.data, status=200)
