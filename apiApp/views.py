@@ -1,9 +1,11 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
-from .models import Product, Category, Cart, CartItem, Review
-from .serializers import ProductListSerializer, CategoryListSerializer, ProductDetailSerializer, CartSerializer, CartItemSerializer, ReviewSerializer
+from .models import Product, Category, Cart, CartItem, Review, Wishlist
+from .serializers import ProductListSerializer, CategoryListSerializer, ProductDetailSerializer, CartSerializer, CartItemSerializer, ReviewSerializer, WishlistSerializer
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 @api_view(['GET'])
 def product_list(request):
@@ -108,3 +110,21 @@ def delete_review(request, pk):
 
     review.delete()
     return Response({"message": "Review deleted successfully"})
+
+
+@api_view(['POST'])
+def add_to_wishlist(request):
+    product_id = request.data.get('product_id')
+    email = request.data.get('email')
+
+    user = User.objects.get(email=email)
+    product = Product.objects.get(id=product_id)
+
+    wishlist = Wishlist.objects.filter(user=user, product=product)
+    if wishlist:
+        wishlist.delete()
+        return Response({"message": "Product removed from wishlist"}, status=204)
+    
+    new_wishlist = Wishlist.objects.create(user=user, product=product)
+    serializer = WishlistSerializer(new_wishlist)
+    return Response({"data": serializer.data, "message": "Product added to wishlist"})
